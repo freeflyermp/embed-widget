@@ -3,36 +3,32 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>HTML → Notion Embed Tool</title>
+<title>Notion Embed Tool</title>
 
 <style>
-:root {
-  --border: #e5e7eb;
-  --bg: #ffffff;
-  --muted: #6b7280;
-}
-
 body {
   font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   margin: 40px;
-  background: var(--bg);
+  background: #ffffff;
   color: #111;
 }
+
+.section { margin-top: 28px; }
 
 textarea {
   width: 100%;
   min-height: 220px;
   padding: 12px;
   font-family: ui-monospace, monospace;
-  border: 1px solid var(--border);
+  border: 1px solid #e5e7eb;
   border-radius: 6px;
   resize: vertical;
 }
 
-input {
+input, select {
   width: 100%;
   padding: 10px;
-  border: 1px solid var(--border);
+  border: 1px solid #e5e7eb;
   border-radius: 6px;
   margin-top: 8px;
   font-family: ui-monospace, monospace;
@@ -41,7 +37,7 @@ input {
 button {
   margin-top: 12px;
   padding: 10px 16px;
-  border: 1px solid var(--border);
+  border: 1px solid #e5e7eb;
   border-radius: 6px;
   background: #111;
   color: #fff;
@@ -53,22 +49,12 @@ button.secondary {
   color: #111;
 }
 
-.section { margin-top: 28px; }
-
 .preview {
   margin-top: 16px;
   padding: 16px;
-  border: 1px solid var(--border);
+  border: 1px solid #e5e7eb;
   border-radius: 6px;
 }
-
-.hint {
-  font-size: 13px;
-  color: var(--muted);
-  margin-top: 6px;
-}
-
-/* Clock styles (used only in JSON mode) */
 
 .clock-container {
   display: flex;
@@ -79,14 +65,14 @@ button.secondary {
 
 .clock-card {
   padding: 12px 16px;
-  border: 1px solid var(--border);
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
   min-width: 140px;
 }
 
 .clock-label {
   font-size: 13px;
-  color: var(--muted);
+  color: #6b7280;
 }
 
 .clock-time {
@@ -104,139 +90,77 @@ button.secondary {
 (function() {
 
   const params = new URLSearchParams(window.location.search);
-  const renderContent = params.get("render");
+  const renderParam = params.get("render");
   const app = document.getElementById("app");
 
-  // ========================
+  // ========================================
   // RENDER MODE
-  // ========================
-  if (renderContent) {
+  // ========================================
+  if (renderParam) {
 
     document.body.style.margin = "0";
-    const decoded = decodeURIComponent(renderContent);
 
-    // Try JSON first
+    let decoded;
+    try {
+      decoded = decodeURIComponent(renderParam);
+    } catch (e) {
+      // malformed percent-encoding — fall back to raw value
+      decoded = renderParam;
+      console.warn('Failed to decode render param, using raw value');
+    }
+
+    // Attempt JSON render first
     try {
       const config = JSON.parse(decoded);
-
       if (config.type === "clock" && Array.isArray(config.cities)) {
         renderClock(config);
         return;
       }
-
     } catch (e) {
-      // Not JSON — fallback to HTML mode
+      // Not JSON, continue
     }
 
-    // HTML fallback
-    app.innerHTML = decoded;
-
-    const scripts = app.querySelectorAll("script");
-    scripts.forEach(oldScript => {
-      const newScript = document.createElement("script");
-
-      if (oldScript.src) {
-        newScript.src = oldScript.src;
-        if (oldScript.async) newScript.async = true;
-        if (oldScript.defer) newScript.defer = true;
-      } else {
-        newScript.textContent = oldScript.textContent;
-      }
-
-      oldScript.replaceWith(newScript);
-    });
-
+    // Raw HTML fallback
+    renderHTML(decoded);
     return;
   }
 
-  // Helper to render a clock configuration passed as JSON
-  function renderClock(config) {
-    try {
-      const root = document.createElement('div');
-      root.className = 'clock-container';
+  // ========================================
+  // GENERATOR MODE
+  // ========================================
 
-      const cities = Array.isArray(config.cities) ? config.cities : [];
-      cities.forEach((c, i) => {
-        const id = 'rc-' + i + '-' + Math.random().toString(36).slice(2,6);
-        const label = (c.label || c.city || '').toString();
-        const tz = (c.timezone || c.tz || '').toString();
-        const showSeconds = !!c.seconds;
-
-        const card = document.createElement('div');
-        card.className = 'clock-card';
-        card.innerHTML = `
-          <div class="clock-label">${label}</div>
-          <div class="clock-time" id="${id}">Loading…</div>
-        `;
-
-        root.appendChild(card);
-
-        (function(elId, timezone, seconds){
-          const el = document.getElementById(elId);
-          function update(){
-            try {
-              if (seconds) {
-                const fmt2 = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: 'numeric', second: 'numeric', timeZone: timezone });
-                el.textContent = fmt2.format(new Date());
-              } else {
-                const fmt2 = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: 'numeric', timeZone: timezone });
-                el.textContent = fmt2.format(new Date());
-              }
-            } catch (e) {
-              el.textContent = 'Invalid timezone';
-            }
-          }
-          setTimeout(update, 0);
-          setInterval(update, seconds ? 1000 : 60000);
-        })(id, tz, showSeconds);
-      });
-
-      document.body.style.margin = '0';
-      app.innerHTML = '';
-      app.appendChild(root);
-    } catch (e) {
-      app.innerHTML = '<div style="padding:16px">Error rendering clock</div>';
-      console.error(e);
-    }
-  }
-
-  // ========================
-  // CLOCK RENDERER
-  // ========================
   app.innerHTML = `
-    <h1>HTML → Notion Embed Generator</h1>
+    <h1>Notion Embed Generator</h1>
 
     <div class="section">
-      <label for="embedType">Embed Type</label>
-      <select id="embedType">
+      <label>Mode</label>
+      <select id="mode">
         <option value="html">Raw HTML</option>
-        <option value="widget">Widget</option>
+        <option value="clock">World Clock (JSON)</option>
       </select>
     </div>
 
     <div class="section" id="htmlSection">
-      <textarea id="htmlInput" placeholder="Paste your HTML here"></textarea>
+      <textarea id="htmlInput" placeholder="Paste HTML here"></textarea>
     </div>
 
-    <div class="section" id="widgetSection" style="display:none;">
-      <h3>World Clock (widget)</h3>
-      <label for="wcLabel">Label</label>
-      <input id="wcLabel" placeholder="e.g. New York">
+    <div class="section" id="clockSection" style="display:none;">
+      <label>City Label</label>
+      <input id="clockLabel" placeholder="New York">
 
-      <label for="wcTZ">Timezone (IANA)</label>
-      <input id="wcTZ" placeholder="e.g. America/New_York">
+      <label>Timezone (IANA)</label>
+      <input id="clockTZ" placeholder="America/New_York">
 
-      <label><input type="checkbox" id="wcSeconds"> Show seconds</label>
-    </div>
-
-    <div class="section">
-      <button id="generateBtn">Generate Embed Link</button>
+      <label><input type="checkbox" id="clockSeconds"> Show seconds</label>
     </div>
 
     <div class="section">
-      <input id="output" readonly placeholder="Embed URL will appear here">
-      <button class="secondary" id="copyBtn">Copy</button>
-      <div class="hint">Paste this URL into Notion → /embed</div>
+      <button id="generate">Generate Embed URL</button>
+    </div>
+
+    <div class="section">
+      <input id="output" readonly placeholder="Embed URL">
+      <button class="secondary" id="copy">Copy</button>
     </div>
 
     <div class="section">
@@ -244,123 +168,156 @@ button.secondary {
     </div>
   `;
 
-  const embedType = document.getElementById('embedType');
-  const htmlInput = document.getElementById('htmlInput');
-  const widgetSection = document.getElementById('widgetSection');
-  const htmlSection = document.getElementById('htmlSection');
-  const wcLabel = document.getElementById('wcLabel');
-  const wcTZ = document.getElementById('wcTZ');
-  const wcSeconds = document.getElementById('wcSeconds');
-  const output = document.getElementById('output');
-  const preview = document.getElementById('preview');
+  const mode = document.getElementById("mode");
+  const htmlSection = document.getElementById("htmlSection");
+  const clockSection = document.getElementById("clockSection");
 
-  embedType.addEventListener('change', () => {
-    const v = embedType.value;
-    if (v === 'widget') {
-      widgetSection.style.display = '';
-      htmlSection.style.display = 'none';
+  mode.addEventListener("change", () => {
+    if (mode.value === "clock") {
+      clockSection.style.display = "";
+      htmlSection.style.display = "none";
     } else {
-      widgetSection.style.display = 'none';
-      htmlSection.style.display = '';
+      clockSection.style.display = "none";
+      htmlSection.style.display = "";
     }
   });
 
-  function makeWidgetMarkup(opts) {
-    // opts: {label, timezone, seconds}
-    const id = 'wc-' + Math.random().toString(36).slice(2,9);
-    const label = (opts.label || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const tz = (opts.timezone || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const showSeconds = !!opts.seconds;
+  document.getElementById("generate").addEventListener("click", () => {
 
-    const widgetHtml = `
-      <div id="widget-root">
-        <div class="world-clock" id="${id}" style="font-family:system-ui, -apple-system, Roboto, sans-serif; padding:12px; border:1px solid var(--border); border-radius:8px; display:inline-block;">
-          <div class="wc-label">${label}</div>
-          <div class="wc-time" aria-live="polite">Loading…</div>
-        </div>
-        <script>
-          (function(){
-            try {
-              const root = document.getElementById('${id}');
-              if (!root) return;
-              const timeEl = root.querySelector('.wc-time');
-              const opts = { timeZone: '${tz}' };
-              const fmt = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: 'numeric'${showSeconds ? ", second: 'numeric'" : ''} });
-              function update(){
-                try {
-                  timeEl.textContent = fmt.format(new Date());
-                } catch(e) {
-                  timeEl.textContent = 'Invalid timezone';
-                }
-              }
-              update();
-              if (${showSeconds}) {
-                setInterval(update, 1000);
-              } else {
-                setInterval(update, 60000);
-              }
-            } catch(e) {
-              console.error(e);
-            }
-          })();
-        <\/script>
-      </div>
-    `;
+    let payload = "";
 
-    return widgetHtml;
-  }
+    if (mode.value === "clock") {
+      const label = document.getElementById("clockLabel").value.trim();
+      const tz = document.getElementById("clockTZ").value.trim();
+      const seconds = document.getElementById("clockSeconds").checked;
 
-  document.getElementById('generateBtn').addEventListener('click', () => {
-    let finalHTML = '';
-    if (embedType.value === 'widget') {
-      const widgetOpts = { label: wcLabel.value.trim(), timezone: wcTZ.value.trim(), seconds: wcSeconds.checked };
-      finalHTML = makeWidgetMarkup(widgetOpts);
+      payload = JSON.stringify({
+        type: "clock",
+        cities: [
+          { label, timezone: tz, seconds }
+        ]
+      });
+
     } else {
-      finalHTML = htmlInput.value.trim();
-      if (!finalHTML) return;
-
-      // If user pasted a full document, try to wrap it in widget-root for safer rendering
-      finalHTML = '<div id="widget-root">' + finalHTML + '</div>';
+      payload = document.getElementById("htmlInput").value.trim();
+      if (!payload) return;
     }
 
-    const encoded = encodeURIComponent(finalHTML);
+    const encoded = encodeURIComponent(payload);
     const base = window.location.origin + window.location.pathname;
     const finalURL = `${base}?render=${encoded}`;
 
-    output.value = finalURL;
-    // Render preview locally using the same parsing/sanitization used in render mode
-    preview.innerHTML = '';
+    document.getElementById("output").value = finalURL;
+    renderPreview(payload);
+  });
+
+  document.getElementById("copy").addEventListener("click", async () => {
+    const val = document.getElementById("output").value;
+    if (!val) return;
+    await navigator.clipboard.writeText(val);
+  });
+
+  function renderPreview(payload) {
+    const preview = document.getElementById("preview");
+    preview.innerHTML = "";
+
+    try {
+      const json = JSON.parse(payload);
+      if (json.type === "clock") {
+        renderClock(json, preview);
+        return;
+      }
+    } catch {}
+
+    preview.innerHTML = payload;
+    reexecuteScripts(preview);
+  }
+
+  function renderHTML(html) {
+    // Parse and sanitize known generator UI before inserting the user-supplied
+    // HTML. This prevents elements from the generator (ids/classes) from being
+    // injected into the rendered embed.
     try {
       const parser = new DOMParser();
-      const parsed = parser.parseFromString(finalHTML, 'text/html');
-      const root = parsed.getElementById('widget-root');
-      if (root) {
-        preview.innerHTML = root.innerHTML;
-        // execute any script tags in preview for live demo
-        preview.querySelectorAll('script').forEach(oldScript => {
-          const newScript = document.createElement('script');
-          if (oldScript.src) {
-            newScript.src = oldScript.src;
-            newScript.async = oldScript.async;
-          } else {
-            newScript.textContent = oldScript.textContent;
-          }
-          oldScript.replaceWith(newScript);
-        });
-      } else {
-        preview.textContent = 'Preview unavailable';
-      }
+      const parsed = parser.parseFromString(html, 'text/html');
+
+      // Remove known generator controls and the host `#app` to avoid nesting
+      // or duplicating the application UI inside an embed.
+      const blacklist = ['#htmlInput', '#generate', '#generateBtn', '#output', '#copy', '#copyBtn', '#preview', '#app'];
+      blacklist.forEach(sel => parsed.querySelectorAll(sel).forEach(el => el.remove()));
+
+      app.innerHTML = parsed.body.innerHTML;
+      reexecuteScripts(app);
     } catch (e) {
-      preview.textContent = 'Preview error';
+      // If parsing fails, fall back to direct insertion (best-effort)
+      app.innerHTML = html;
+      reexecuteScripts(app);
     }
-  });
+  }
 
-  document.getElementById('copyBtn').addEventListener('click', async () => {
-    if (!output.value) return;
-    await navigator.clipboard.writeText(output.value);
-  });
+  function reexecuteScripts(container) {
+    container.querySelectorAll("script").forEach(oldScript => {
+      const s = document.createElement("script");
+      // copy all attributes (type, async, defer, nonce, etc.) to preserve
+      // module/nomodule and other behaviors.
+      for (let i = 0; i < oldScript.attributes.length; i++) {
+        const attr = oldScript.attributes[i];
+        try { s.setAttribute(attr.name, attr.value); } catch (e) {}
+      }
+
+      if (oldScript.src) {
+        s.src = oldScript.src;
+        s.async = oldScript.async;
+      } else {
+        s.textContent = oldScript.textContent;
+      }
+      oldScript.replaceWith(s);
+    });
+  }
+
+  function renderClock(config, target = app) {
+    const root = document.createElement("div");
+    root.className = "clock-container";
+
+    config.cities.forEach(city => {
+      const card = document.createElement("div");
+      card.className = "clock-card";
+
+      const label = document.createElement("div");
+      label.className = "clock-label";
+      label.textContent = city.label;
+
+      const time = document.createElement("div");
+      time.className = "clock-time";
+
+      card.appendChild(label);
+      card.appendChild(time);
+      root.appendChild(card);
+
+      const fmt = new Intl.DateTimeFormat(undefined, {
+        timeZone: city.timezone,
+        hour: "numeric",
+        minute: "numeric",
+        ...(city.seconds && { second: "numeric" })
+      });
+
+      function update() {
+        try {
+          time.textContent = fmt.format(new Date());
+        } catch {
+          time.textContent = "Invalid timezone";
+        }
+      }
+
+      update();
+      setInterval(update, city.seconds ? 1000 : 60000);
+    });
+
+    target.innerHTML = "";
+    target.appendChild(root);
+  }
+
 })();
-
 </script>
 
 </body>
