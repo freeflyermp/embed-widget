@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clock Widget Generator</title>
+<style>
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:24px;color:#111}
+.row{display:flex;gap:12px;align-items:center}
+.col{display:flex;flex-direction:column;gap:8px}
+label{font-size:13px;color:#374151}
+input[type="text"],select{padding:8px;border:1px solid #e5e7eb;border-radius:6px}
+button{padding:8px 12px;border-radius:6px;border:1px solid #e5e7eb;background:#111;color:#fff;cursor:pointer}
+button.secondary{background:#f3f4f6;color:#111}
+.section{margin-top:18px}
+.cities{margin-top:8px;display:flex;flex-direction:column;gap:8px}
+.city{display:flex;gap:8px}
+.city input{flex:1}
+.small{font-size:12px;color:#6b7280}
+.output{width:100%;padding:8px;margin-top:8px;border:1px solid #e5e7eb;border-radius:6px;background:#fafafa}
+.previewWrap{margin-top:12px;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden}
+.previewWrap iframe{width:100%;height:300px;border:0}
+.controls{display:flex;gap:8px;flex-wrap:wrap}
+.link{word-break:break-all;background:#fff;padding:8px;border-radius:6px;border:1px solid #e5e7eb}
+.muted{color:#6b7280;font-size:13px}
+</style>
+</head>
+<body>
+
+<h2>Clock Widget Generator</h2>
+<div class="section">
+	<div class="row">
+		<div style="flex:1">
+			<label for="theme">Theme</label>
+			<select id="theme">
+				<option value="light">Light</option>
+				<option value="dark">Dark</option>
+				<option value="minimal">Minimal</option>
+			</select>
+		</div>
+		<div style="width:140px">
+			<label for="hourFormat">Hour Format</label>
+			<select id="hourFormat">
+				<option value="12">12</option>
+				<option value="24">24</option>
+			</select>
+		</div>
+		<div style="width:140px">
+			<label for="layout">Layout</label>
+			<select id="layout">
+				<option value="wrap">Wrap</option>
+				<option value="stack">Stack</option>
+			</select>
+		</div>
+	</div>
+	<div class="row" style="margin-top:10px">
+		<label style="width:140px"><input type="checkbox" id="showSeconds"> Show seconds</label>
+		<label style="width:140px"><input type="checkbox" id="showDate" checked> Show date</label>
+		<label style="width:200px"><input type="checkbox" id="showTimezone"> Show timezone offset</label>
+	</div>
+</div>
+
+<div class="section">
+	<label>Cities</label>
+	<div class="cities" id="cities"></div>
+	<div style="margin-top:8px">
+		<button id="addCity" class="secondary">Add city</button>
+		<button id="resetCities" class="secondary">Reset defaults</button>
+		<div class="small muted" style="margin-top:6px">Use IANA timezones (e.g. America/New_York). Order determines layout.</div>
+	</div>
+</div>
+
+<div class="section controls">
+	<button id="generate">Generate Embed URL</button>
+	<button id="copy" class="secondary">Copy URL</button>
+	<label style="display:flex;align-items:center;gap:8px;margin-left:8px"><input type="checkbox" id="livePreview"> Live preview</label>
+</div>
+
+<div class="section">
+	<div class="small muted">Embed URL</div>
+	<div id="result" class="link output">—</div>
+	<textarea id="rawJson" rows="4" class="output" readonly placeholder="Generated config JSON will appear here"></textarea>
+</div>
+
+<div id="previewArea" class="previewWrap" style="display:none">
+	<iframe id="previewFrame" sandbox="allow-scripts allow-same-origin"></iframe>
+</div>
+
+<script>
+(() => {
+	'use strict';
+
+	const DEFAULT_CITIES = [
+		{ label: 'Pacific — Sebastopol', timezone: 'America/Los_Angeles' },
+		{ label: 'Eastern — New York', timezone: 'America/New_York' },
+		{ label: 'London', timezone: 'Europe/London' },
+		{ label: 'Delhi', timezone: 'Asia/Kolkata' },
+		{ label: 'Singapore', timezone: 'Asia/Singapore' },
+		{ label: 'Melbourne', timezone: 'Australia/Melbourne' }
+	];
+
+	const qs = (id) => document.getElementById(id);
+	const citiesEl = qs('cities');
+	const resultEl = qs('result');
+	const rawJsonEl = qs('rawJson');
+	const previewArea = qs('previewArea');
+	const previewFrame = qs('previewFrame');
+
+	function makeCityRow(city){
+		const wrap = document.createElement('div');
+		wrap.className = 'city';
+		const label = document.createElement('input'); label.type = 'text'; label.placeholder = 'Label'; label.value = city.label || '';
+		const tz = document.createElement('input'); tz.type = 'text'; tz.placeholder = 'Timezone (IANA)'; tz.value = city.timezone || '';
+		const del = document.createElement('button'); del.textContent = 'Remove'; del.className = 'secondary';
+		del.addEventListener('click', () => { wrap.remove(); });
+		wrap.appendChild(label); wrap.appendChild(tz); wrap.appendChild(del);
+		return wrap;
+	}
+
+	function populateDefaultCities(){
+		citiesEl.innerHTML = '';
+		DEFAULT_CITIES.forEach(c => citiesEl.appendChild(makeCityRow(c)));
+	}
+
+	qs('addCity').addEventListener('click', () => {
+		citiesEl.appendChild(makeCityRow({label:'',timezone:''}));
+	});
+
+	qs('resetCities').addEventListener('click', () => populateDefaultCities());
+
+	function buildConfig(){
+		const theme = qs('theme').value;
+		const hourFormat = Number(qs('hourFormat').value) === 24 ? 24 : 12;
+		const layout = qs('layout').value === 'stack' ? 'stack' : 'wrap';
+		const showSeconds = !!qs('showSeconds').checked;
+		const showDate = !!qs('showDate').checked;
+		const showTimezone = !!qs('showTimezone').checked;
+
+		const cityNodes = Array.from(citiesEl.querySelectorAll('.city'));
+		const cities = cityNodes.map(n => {
+			const inputs = n.querySelectorAll('input');
+			return { label: inputs[0].value.trim(), timezone: inputs[1].value.trim() };
+		}).filter(c => c.timezone || c.label);
+
+		return {
+			theme,
+			hourFormat,
+			showSeconds,
+			showDate,
+			showTimezone,
+			layout,
+			cities: cities.length ? cities : DEFAULT_CITIES
+		};
+	}
+
+	function generateUrl(cfg){
+		const json = JSON.stringify(cfg);
+		const encoded = encodeURIComponent(json);
+		// renderer is sibling folder ../widgets/clock-renderer.html
+		const rendererUrl = new URL('../widgets/clock-renderer.html', window.location.href).href;
+		return { url: rendererUrl + '?config=' + encoded, json };
+	}
+
+	function renderResult(){
+		const cfg = buildConfig();
+		const out = generateUrl(cfg);
+		resultEl.textContent = out.url;
+		rawJsonEl.value = out.json;
+		if (qs('livePreview').checked) {
+			previewArea.style.display = '';
+			previewFrame.src = out.url;
+		} else {
+			previewArea.style.display = 'none';
+			previewFrame.src = 'about:blank';
+		}
+		return out.url;
+	}
+
+	qs('generate').addEventListener('click', (e) => {
+		e.preventDefault();
+		renderResult();
+	});
+
+	qs('copy').addEventListener('click', async () => {
+		const url = renderResult();
+		try { await navigator.clipboard.writeText(url); resultEl.textContent = 'Copied! ' + url; setTimeout(()=> { resultEl.textContent = url }, 1200); } catch (e) { alert('Copy failed — select and copy manually'); }
+	});
+
+	qs('livePreview').addEventListener('change', () => renderResult());
+
+	// initialize
+	populateDefaultCities();
+	renderResult();
+
+})();
+</script>
+
+</body>
+</html>

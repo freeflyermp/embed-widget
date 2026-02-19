@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Widget Tools — Control Panel</title>
+  <style>
+    :root{--bg:#fff;--muted:#6b7280;--border:#e5e7eb;--accent:#111}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;margin:28px;background:var(--bg);color:var(--accent)}
+    h1{font-size:20px;margin:0 0 12px}
+    .grid{display:grid;grid-template-columns:1fr 360px;gap:24px;align-items:start}
+    .panel{padding:14px;border:1px solid var(--border);border-radius:8px}
+    .list{display:flex;flex-direction:column;gap:8px}
+    a.item{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-radius:6px;text-decoration:none;color:inherit;background:transparent;border:1px solid transparent}
+    a.item:hover{background:#f9fafb;border-color:var(--border)}
+    .label{font-weight:600}
+    .muted{color:var(--muted);font-size:13px}
+    .group-title{font-size:13px;margin:0 0 8px;color:var(--muted)}
+    .right{font-size:13px;color:var(--muted)}
+    .footer{margin-top:16px;font-size:13px;color:var(--muted)}
+    .disabled{opacity:0.5;pointer-events:none}
+    @media (max-width:760px){.grid{grid-template-columns:1fr;}}
+  </style>
+</head>
+<body>
+  <h1>Widget Tools — Control Panel</h1>
+  <div class="grid">
+    <div class="panel">
+      <div class="group">
+        <div class="group-title">Generators</div>
+        <div class="list">
+          <a class="item" href="tools/clock-generator.html"><span class="label">World Clock Generator</span><span class="right">no-code</span></a>
+          <a class="item" href="tools/embed-generator.html"><span class="label">HTML → Embed Generator</span><span class="right">raw/html</span></a>
+          <a class="item disabled" href="#"><span class="label">Countdown Generator</span><span class="right">planned</span></a>
+          <a class="item disabled" href="#"><span class="label">Timer Generator</span><span class="right">planned</span></a>
+        </div>
+      </div>
+
+      <div style="height:16px"></div>
+
+      <div class="group">
+        <div class="group-title">Renderers (Advanced / Debug)</div>
+        <div class="list">
+          <a class="item" href="widgets/clock-renderer.html"><span class="label">Clock Renderer</span><span class="right">renderer</span></a>
+          <a class="item disabled" href="#"><span class="label">Countdown Renderer</span><span class="right">planned</span></a>
+          <a class="item disabled" href="#"><span class="label">Timer Renderer</span><span class="right">planned</span></a>
+        </div>
+      </div>
+    </div>
+
+    <aside class="panel" id="rightPanel">
+      <div class="muted">Project overview</div>
+      <p class="muted" style="margin-top:8px">Widget Tools provides lightweight, static generators and safe renderers for embeddable widgets. Use generators to create Notion-safe embed URLs; use renderers for advanced debugging or standalone embeds.</p>
+      <div style="margin-top:12px">
+        <div class="group-title">Quick preview</div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+          <select id="previewTarget" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:6px">
+            <option value="widgets/clock-renderer.html">Clock Renderer</option>
+            <option value="widgets/clock-renderer.html?theme=dark&format=24&seconds=true">Clock Renderer (dark)</option>
+          </select>
+          <button id="openBtn" title="Open in new tab">Open</button>
+          <button id="copyBtn" class="secondary" title="Copy link">Copy</button>
+        </div>
+      </div>
+
+      <div id="previewWrap" style="margin-top:12px;border:1px solid var(--border);border-radius:6px;overflow:hidden;display:none">
+        <iframe id="previewFrame" style="width:100%;height:360px;border:0" sandbox="allow-scripts allow-same-origin"></iframe>
+      </div>
+
+      <div class="footer" style="margin-top:12px">Links are static and work on GitHub Pages. Generators produce URL config consumed by renderers.</div>
+    </aside>
+  </div>
+  <script>
+    (function(){
+      const previewSelect = document.getElementById('previewTarget');
+      const openBtn = document.getElementById('openBtn');
+      const copyBtn = document.getElementById('copyBtn');
+      const previewWrap = document.getElementById('previewWrap');
+      const previewFrame = document.getElementById('previewFrame');
+
+      function updatePreview() {
+        const url = previewSelect.value;
+        if (!url) { previewWrap.style.display = 'none'; return; }
+        previewFrame.src = url;
+        previewWrap.style.display = '';
+      }
+
+      previewSelect.addEventListener('change', updatePreview);
+      openBtn.addEventListener('click', () => { window.open(previewSelect.value, '_blank'); });
+      copyBtn.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(previewSelect.value); copyBtn.textContent = 'Copied'; setTimeout(()=>copyBtn.textContent='Copy',1000); } catch(e) { alert('Copy failed'); }
+      });
+
+      // show default preview
+      updatePreview();
+    })();
+  </script>
+</body>
+</html>
