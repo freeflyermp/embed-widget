@@ -1,91 +1,92 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>HTML → Notion Embed Tool</title>
-  <style>
-    :root {
-      --border: #e5e7eb;
-      --bg: #ffffff;
-      --muted: #6b7280;
-    }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HTML → Notion Embed Tool</title>
 
-    body {
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      margin: 40px;
-      background: var(--bg);
-      color: #111;
-    }
+<style>
+:root {
+  --border: #e5e7eb;
+  --bg: #ffffff;
+  --muted: #6b7280;
+}
 
-    h1 {
-      font-size: 20px;
-      margin-bottom: 16px;
-    }
+body {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  margin: 40px;
+  background: var(--bg);
+  color: #111;
+}
 
-    textarea {
-      width: 100%;
-      min-height: 220px;
-      padding: 12px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      resize: vertical;
-    }
+h1 {
+  font-size: 20px;
+  margin-bottom: 16px;
+}
 
-    input {
-      width: 100%;
-      padding: 10px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      margin-top: 8px;
-      font-family: ui-monospace, monospace;
-    }
+textarea {
+  width: 100%;
+  min-height: 220px;
+  padding: 12px;
+  font-family: ui-monospace, monospace;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  resize: vertical;
+}
 
-    button {
-      margin-top: 12px;
-      padding: 10px 16px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      background: #111;
-      color: #fff;
-      cursor: pointer;
-    }
+input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-top: 8px;
+  font-family: ui-monospace, monospace;
+}
 
-    button.secondary {
-      background: #f3f4f6;
-      color: #111;
-    }
+button {
+  margin-top: 12px;
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #111;
+  color: #fff;
+  cursor: pointer;
+}
 
-    .section {
-      margin-top: 28px;
-    }
+button.secondary {
+  background: #f3f4f6;
+  color: #111;
+}
 
-    .preview {
-      margin-top: 16px;
-      padding: 16px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-    }
+.section {
+  margin-top: 28px;
+}
 
-    .hint {
-      font-size: 13px;
-      color: var(--muted);
-      margin-top: 6px;
-    }
-  </style>
+.preview {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.hint {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+</style>
 </head>
 <body>
 
 <script>
-  // Detect render mode immediately
+(function () {
+
   const params = new URLSearchParams(window.location.search);
   const renderContent = params.get("render");
 
   if (renderContent) {
     const decoded = decodeURIComponent(renderContent);
 
-    // Rebuild full document so scripts execute normally
     document.open();
     document.write(`
       <!doctype html>
@@ -94,13 +95,17 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
       </head>
-      <body>
+      <body style="margin:0">
         ${decoded}
       </body>
       </html>
     `);
     document.close();
+
+    return; // Clean exit, no UI load
   }
+
+})();
 </script>
 
 <h1>HTML → Notion Embed Generator</h1>
@@ -121,26 +126,26 @@
 </div>
 
 <script>
-  const htmlInput = document.getElementById("htmlInput");
-  const output = document.getElementById("output");
-  const preview = document.getElementById("preview");
+const htmlInput = document.getElementById("htmlInput");
+const output = document.getElementById("output");
+const preview = document.getElementById("preview");
 
-  document.getElementById("generateBtn").addEventListener("click", () => {
-    const html = htmlInput.value.trim();
-    if (!html) return;
+document.getElementById("generateBtn").addEventListener("click", () => {
+  const html = htmlInput.value.trim();
+  if (!html) return;
 
-    const encoded = encodeURIComponent(html);
-    const base = window.location.origin + window.location.pathname;
-    const finalURL = `${base}?render=${encoded}`;
+  const encoded = encodeURIComponent(html);
+  const base = window.location.origin + window.location.pathname;
+  const finalURL = `${base}?render=${encoded}`;
 
-    output.value = finalURL;
-    preview.innerHTML = html;
-  });
+  output.value = finalURL;
+  preview.innerHTML = html;
+});
 
-  document.getElementById("copyBtn").addEventListener("click", async () => {
-    if (!output.value) return;
-    await navigator.clipboard.writeText(output.value);
-  });
+document.getElementById("copyBtn").addEventListener("click", async () => {
+  if (!output.value) return;
+  await navigator.clipboard.writeText(output.value);
+});
 </script>
 
 </body>
