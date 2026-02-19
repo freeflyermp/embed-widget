@@ -14,6 +14,7 @@ body {
   flex-wrap: wrap;
   gap: 16px;
   background: #ffffff;
+  color: #111;
 }
 
 .clock {
@@ -82,13 +83,42 @@ body {
 
 <script>
 
+// =============================
+// CONFIG FROM URL
+// =============================
+
+const params = new URLSearchParams(window.location.search);
+
+const formatParam = params.get("format");
+const showSeconds = params.get("seconds") === "true";
+const theme = params.get("theme") || "light";
+
+const hour12 = formatParam !== "24";
+
+// =============================
+// THEME HANDLING
+// =============================
+
+if (theme === "dark") {
+  document.body.style.background = "#111";
+  document.body.style.color = "#ffffff";
+
+  document.querySelectorAll(".clock").forEach(c => {
+    c.style.borderColor = "#333";
+  });
+}
+
+// =============================
+// TIME FORMATTERS
+// =============================
+
 function formatTime(zone) {
   return new Intl.DateTimeFormat("en-US", {
     timeZone: zone,
     hour: "2-digit",
     minute: "2-digit",
-    second: "2-digit",
-    hour12: true
+    ...(showSeconds && { second: "2-digit" }),
+    hour12: hour12
   }).format(new Date());
 }
 
@@ -102,41 +132,31 @@ function formatDate(zone) {
   }).format(new Date());
 }
 
+// =============================
+// UPDATE LOOP
+// =============================
+
+const zones = [
+  { id: "la", zone: "America/Los_Angeles" },
+  { id: "ny", zone: "America/New_York" },
+  { id: "lon", zone: "Europe/London" },
+  { id: "del", zone: "Asia/Kolkata" },
+  { id: "sin", zone: "Asia/Singapore" },
+  { id: "mel", zone: "Australia/Melbourne" }
+];
+
 function update() {
+  zones.forEach(z => {
+    document.getElementById(z.id).textContent =
+      formatTime(z.zone);
 
-  document.getElementById("la").textContent =
-    formatTime("America/Los_Angeles");
-  document.getElementById("la-date").textContent =
-    formatDate("America/Los_Angeles");
-
-  document.getElementById("ny").textContent =
-    formatTime("America/New_York");
-  document.getElementById("ny-date").textContent =
-    formatDate("America/New_York");
-
-  document.getElementById("lon").textContent =
-    formatTime("Europe/London");
-  document.getElementById("lon-date").textContent =
-    formatDate("Europe/London");
-
-  document.getElementById("del").textContent =
-    formatTime("Asia/Kolkata");
-  document.getElementById("del-date").textContent =
-    formatDate("Asia/Kolkata");
-
-  document.getElementById("sin").textContent =
-    formatTime("Asia/Singapore");
-  document.getElementById("sin-date").textContent =
-    formatDate("Asia/Singapore");
-
-  document.getElementById("mel").textContent =
-    formatTime("Australia/Melbourne");
-  document.getElementById("mel-date").textContent =
-    formatDate("Australia/Melbourne");
+    document.getElementById(z.id + "-date").textContent =
+      formatDate(z.zone);
+  });
 }
 
 update();
-setInterval(update, 1000);
+setInterval(update, showSeconds ? 1000 : 60000);
 
 </script>
 
