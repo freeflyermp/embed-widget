@@ -243,7 +243,7 @@ button.secondary {
 
       // Remove known generator controls and the host `#app` to avoid nesting
       // or duplicating the application UI inside an embed.
-      const blacklist = ['#htmlInput', '#generate', '#generateBtn', '#output', '#copy', '#copyBtn', '#preview', '#app'];
+      const blacklist = ['#htmlInput', '#generate', '#generateBtn', '#output', '#copy', '#copyBtn', '#preview', '#app', '#mode', '#htmlSection', '#clockSection', '#clockLabel', '#clockTZ', '#clockSeconds'];
       blacklist.forEach(sel => parsed.querySelectorAll(sel).forEach(el => el.remove()));
 
       app.innerHTML = parsed.body.innerHTML;
@@ -294,15 +294,11 @@ button.secondary {
       card.appendChild(time);
       root.appendChild(card);
 
-      const fmt = new Intl.DateTimeFormat(undefined, {
-        timeZone: city.timezone,
-        hour: "numeric",
-        minute: "numeric",
-        ...(city.seconds && { second: "numeric" })
-      });
-
       function update() {
         try {
+          const opts = { timeZone: city.timezone, hour: "numeric", minute: "numeric" };
+          if (city.seconds) opts.second = "numeric";
+          const fmt = new Intl.DateTimeFormat(undefined, opts);
           time.textContent = fmt.format(new Date());
         } catch {
           time.textContent = "Invalid timezone";

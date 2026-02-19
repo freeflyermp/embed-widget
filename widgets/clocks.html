@@ -1,0 +1,144 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>World Clocks</title>
+
+<style>
+body {
+  margin: 0;
+  padding: 16px;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  background: #ffffff;
+}
+
+.clock {
+  min-width: 180px;
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+}
+
+.time {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.label {
+  font-size: 14px;
+  opacity: 0.7;
+  margin-top: 4px;
+}
+
+.date {
+  font-size: 12px;
+  opacity: 0.6;
+  margin-top: 6px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="clock">
+  <div class="time" id="la"></div>
+  <div class="label">Pacific — Sebastopol</div>
+  <div class="date" id="la-date"></div>
+</div>
+
+<div class="clock">
+  <div class="time" id="ny"></div>
+  <div class="label">Eastern — New York</div>
+  <div class="date" id="ny-date"></div>
+</div>
+
+<div class="clock">
+  <div class="time" id="lon"></div>
+  <div class="label">London</div>
+  <div class="date" id="lon-date"></div>
+</div>
+
+<div class="clock">
+  <div class="time" id="del"></div>
+  <div class="label">Delhi</div>
+  <div class="date" id="del-date"></div>
+</div>
+
+<div class="clock">
+  <div class="time" id="sin"></div>
+  <div class="label">Singapore</div>
+  <div class="date" id="sin-date"></div>
+</div>
+
+<div class="clock">
+  <div class="time" id="mel"></div>
+  <div class="label">Melbourne</div>
+  <div class="date" id="mel-date"></div>
+</div>
+
+<script>
+
+function formatTime(zone) {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: zone,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true
+  }).format(new Date());
+}
+
+function formatDate(zone) {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: zone,
+    weekday: "short",
+    month: "short",
+    day: "2-digit",
+    year: "numeric"
+  }).format(new Date());
+}
+
+function update() {
+
+  document.getElementById("la").textContent =
+    formatTime("America/Los_Angeles");
+  document.getElementById("la-date").textContent =
+    formatDate("America/Los_Angeles");
+
+  document.getElementById("ny").textContent =
+    formatTime("America/New_York");
+  document.getElementById("ny-date").textContent =
+    formatDate("America/New_York");
+
+  document.getElementById("lon").textContent =
+    formatTime("Europe/London");
+  document.getElementById("lon-date").textContent =
+    formatDate("Europe/London");
+
+  document.getElementById("del").textContent =
+    formatTime("Asia/Kolkata");
+  document.getElementById("del-date").textContent =
+    formatDate("Asia/Kolkata");
+
+  document.getElementById("sin").textContent =
+    formatTime("Asia/Singapore");
+  document.getElementById("sin-date").textContent =
+    formatDate("Asia/Singapore");
+
+  document.getElementById("mel").textContent =
+    formatTime("Australia/Melbourne");
+  document.getElementById("mel-date").textContent =
+    formatDate("Australia/Melbourne");
+}
+
+update();
+setInterval(update, 1000);
+
+</script>
+
+</body>
+</html>
