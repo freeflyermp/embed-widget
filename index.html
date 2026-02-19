@@ -1,60 +1,146 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>HTML → Notion Embed Tool</title>
-<style>
-body { font-family: system-ui; margin: 40px; }
-textarea { width: 100%; height: 200px; }
-input { width: 100%; padding: 8px; }
-button { padding: 8px 16px; margin-top: 10px; }
-.preview { margin-top: 30px; border: 1px solid #ddd; padding: 20px; }
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HTML → Notion Embed Tool</title>
+  <style>
+    :root {
+      --border: #e5e7eb;
+      --bg: #ffffff;
+      --muted: #6b7280;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      margin: 40px;
+      background: var(--bg);
+      color: #111;
+    }
+
+    h1 {
+      font-size: 20px;
+      margin-bottom: 16px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 220px;
+      padding: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      resize: vertical;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-top: 8px;
+      font-family: ui-monospace, monospace;
+    }
+
+    button {
+      margin-top: 12px;
+      padding: 10px 16px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #111;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: #f3f4f6;
+      color: #111;
+    }
+
+    .section {
+      margin-top: 28px;
+    }
+
+    .preview {
+      margin-top: 16px;
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+
+    .hint {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+  </style>
 </head>
 <body>
 
-<h2>HTML → Notion Embed Generator</h2>
+<script>
+  // Detect render mode immediately
+  const params = new URLSearchParams(window.location.search);
+  const renderContent = params.get("render");
 
-<textarea id="htmlInput" placeholder="Paste your HTML here"></textarea>
-<button onclick="generate()">Generate Embed Link</button>
+  if (renderContent) {
+    const decoded = decodeURIComponent(renderContent);
 
-<h3>Embed URL</h3>
-<input id="output" readonly>
-<button onclick="copy()">Copy</button>
+    // Rebuild full document so scripts execute normally
+    document.open();
+    document.write(`
+      <!doctype html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+      </head>
+      <body>
+        ${decoded}
+      </body>
+      </html>
+    `);
+    document.close();
+  }
+</script>
 
-<hr>
+<h1>HTML → Notion Embed Generator</h1>
 
-<h3>Preview</h3>
-<div class="preview" id="preview"></div>
+<div class="section">
+  <textarea id="htmlInput" placeholder="Paste your HTML here"></textarea>
+  <button id="generateBtn">Generate Embed Link</button>
+</div>
+
+<div class="section">
+  <input id="output" readonly placeholder="Embed URL will appear here">
+  <button class="secondary" id="copyBtn">Copy</button>
+  <div class="hint">Paste this URL into Notion → /embed</div>
+</div>
+
+<div class="section">
+  <div class="preview" id="preview"></div>
+</div>
 
 <script>
+  const htmlInput = document.getElementById("htmlInput");
+  const output = document.getElementById("output");
+  const preview = document.getElementById("preview");
 
-function generate() {
-  const html = document.getElementById("htmlInput").value;
-  const encoded = encodeURIComponent(html);
+  document.getElementById("generateBtn").addEventListener("click", () => {
+    const html = htmlInput.value.trim();
+    if (!html) return;
 
-  const base = window.location.origin + window.location.pathname;
-  const finalURL = base + "?render=" + encoded;
+    const encoded = encodeURIComponent(html);
+    const base = window.location.origin + window.location.pathname;
+    const finalURL = `${base}?render=${encoded}`;
 
-  document.getElementById("output").value = finalURL;
-  document.getElementById("preview").innerHTML = html;
-}
+    output.value = finalURL;
+    preview.innerHTML = html;
+  });
 
-function copy() {
-  const field = document.getElementById("output");
-  field.select();
-  document.execCommand("copy");
-}
-
-// Render mode
-const params = new URLSearchParams(window.location.search);
-const renderContent = params.get("render");
-
-if (renderContent) {
-  document.body.innerHTML = decodeURIComponent(renderContent);
-}
-
+  document.getElementById("copyBtn").addEventListener("click", async () => {
+    if (!output.value) return;
+    await navigator.clipboard.writeText(output.value);
+  });
 </script>
 
 </body>
