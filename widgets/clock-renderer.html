@@ -1,0 +1,313 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>World Clocks</title>
+
+<style>
+/* Reset / base */
+html,body { height: 100%; margin: 0; }
+body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+
+/* Themes applied to body */
+.theme-light { background: #ffffff; color: #111; }
+.theme-dark  { background: #111; color: #fff; }
+.theme-minimal { background: transparent; color: #111; }
+
+/* Root layout classes */
+#root { padding: 16px; box-sizing: border-box; }
+.layout-wrap { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.layout-stack { display: flex; flex-direction: column; gap: 12px; }
+
+/* Card styles */
+.clock {
+  min-width: 180px;
+  padding: 14px;
+  border-radius: 10px;
+  background: transparent;
+  box-sizing: border-box;
+  border: 1px solid rgba(0,0,0,0.08);
+}
+.theme-dark .clock { border-color: rgba(255,255,255,0.08); }
+.theme-minimal .clock { border: none; padding: 8px; }
+
+.time { font-size: 22px; font-weight: 600; }
+.label { font-size: 14px; opacity: 0.8; margin-top: 6px; }
+.date { font-size: 12px; opacity: 0.7; margin-top: 6px; }
+.offset { font-size: 12px; opacity: 0.65; margin-top: 4px; }
+
+/* Minimal theme adjustments */
+.theme-minimal .label, .theme-minimal .date, .theme-minimal .offset { opacity: 0.85; font-size: 12px; }
+
+@media (max-width: 420px) {
+  .clock { min-width: 140px; padding: 10px; }
+  .time { font-size: 18px; }
+}
+</style>
+</head>
+
+<body>
+
+<div id="root" role="region" aria-label="World clocks"></div>
+
+<script>
+/*
+  Config-driven clock renderer
+  - Accepts either a URL `config` param with encoded JSON matching the schema,
+    or falls back to legacy params: ?format=24, ?seconds=true, ?theme=dark|minimal|light
+  - Always renders something; never shows a missing page error.
+*/
+
+(function(){
+  'use strict';
+
+  // Default cities
+  const DEFAULT_CITIES = [
+    { label: 'Pacific — Sebastopol', timezone: 'America/Los_Angeles' },
+    { label: 'Eastern — New York', timezone: 'America/New_York' },
+    { label: 'London', timezone: 'Europe/London' },
+    { label: 'Delhi', timezone: 'Asia/Kolkata' },
+    { label: 'Singapore', timezone: 'Asia/Singapore' },
+    { label: 'Melbourne', timezone: 'Australia/Melbourne' }
+  ];
+
+  // Parse URL and build config according to required schema
+  function getConfigFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+
+    const raw = params.get('config');
+    if (raw) {
+      try {
+        const decoded = decodeURIComponent(raw);
+        const cfg = JSON.parse(decoded);
+
+        // Validate and normalize
+        const theme = ['light','dark','minimal'].includes(cfg.theme) ? cfg.theme : 'light';
+        const hourFormat = cfg.hourFormat === 24 ? 24 : 12;
+        const showSeconds = !!cfg.showSeconds;
+        const showDate = cfg.showDate !== false; // default true
+        const showTimezone = !!cfg.showTimezone;
+        const layout = cfg.layout === 'stack' ? 'stack' : 'wrap';
+
+        let cities = Array.isArray(cfg.cities) && cfg.cities.length ? cfg.cities : DEFAULT_CITIES;
+
+        return { theme, hourFormat, showSeconds, showDate, showTimezone, layout, cities };
+      } catch (e) {
+        // fall through to legacy param parsing
+        console.warn('Failed to parse config param, falling back to legacy params');
+      }
+    }
+
+    // Legacy behavior
+    const formatParam = params.get('format');
+    const hourFormat = formatParam === '24' ? 24 : 12;
+    const showSeconds = params.get('seconds') === 'true';
+    const theme = ['light','dark','minimal'].includes(params.get('theme')) ? params.get('theme') : 'light';
+
+    return {
+      theme,
+      hourFormat,
+      showSeconds,
+      showDate: true,
+      showTimezone: false,
+      layout: 'wrap',
+      cities: DEFAULT_CITIES
+    };
+  }
+
+  function applyThemeAndLayout(cfg) {
+    document.body.classList.remove('theme-light','theme-dark','theme-minimal');
+    document.body.classList.add('theme-' + (cfg.theme || 'light'));
+
+    const root = document.getElementById('root');
+    root.classList.remove('layout-wrap','layout-stack');
+    root.classList.add(cfg.layout === 'stack' ? 'layout-stack' : 'layout-wrap');
+  }
+
+  // Helper: compute timezone offset string like UTC-05:00 for a given tz and date
+  function getUTCOffsetString(timeZone, date = new Date()) {
+    try {
+      // Use Intl to get local date/time parts in target timezone
+      const dtf = new Intl.DateTimeFormat('en-US', {
+        timeZone,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+      });
+
+      const parts = dtf.formatToParts(date);
+      const map = {};
+      parts.forEach(p => { if (p.type && p.value) map[p.type] = p.value; });
+
+      // Construct a UTC timestamp from the target-zone local parts
+      if (!map.year || !map.month || !map.day || !map.hour || !map.minute) return null;
+
+      const asUTC = Date.UTC(+map.year, (+map.month)-1, +map.day, +map.hour, +map.minute, +(map.second||0));
+      const localTS = date.getTime();
+      // Offset in minutes: (asUTC - localTS) / 60000
+      const offsetMin = Math.round((asUTC - localTS) / 60000);
+
+      const sign = offsetMin <= 0 ? '+' : '-';
+      const absMin = Math.abs(offsetMin);
+      const h = String(Math.floor(absMin / 60)).padStart(2,'0');
+      const m = String(absMin % 60).padStart(2,'0');
+      return `UTC${sign}${h}:${m}`;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Create formatter caching for performance
+  const fmtCache = new Map();
+  function getTimeFormatter(timeZone, hourFormat, showSeconds) {
+    const key = `${timeZone}|${hourFormat}|${showSeconds}`;
+    if (fmtCache.has(key)) return fmtCache.get(key);
+    try {
+      const opts = { timeZone, hour: 'numeric', minute: 'numeric', hour12: hourFormat === 12 };
+      if (showSeconds) opts.second = 'numeric';
+      const f = new Intl.DateTimeFormat(undefined, opts);
+      fmtCache.set(key, f);
+      return f;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function getDateFormatter(timeZone) {
+    const key = `date|${timeZone}`;
+    if (fmtCache.has(key)) return fmtCache.get(key);
+    try {
+      const f = new Intl.DateTimeFormat(undefined, { timeZone, weekday: 'short', month: 'short', day: '2-digit', year: 'numeric' });
+      fmtCache.set(key, f);
+      return f;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Render cards into #root
+  function render(cfg) {
+    const root = document.getElementById('root');
+    root.innerHTML = '';
+
+    const items = cfg.cities && cfg.cities.length ? cfg.cities : DEFAULT_CITIES;
+
+    const nodes = items.map((c, idx) => {
+      const card = document.createElement('div');
+      card.className = 'clock';
+
+      const timeEl = document.createElement('div'); timeEl.className = 'time';
+      const labelEl = document.createElement('div'); labelEl.className = 'label'; labelEl.textContent = c.label || '';
+      const dateEl = document.createElement('div'); dateEl.className = 'date';
+      const offsetEl = document.createElement('div'); offsetEl.className = 'offset';
+
+      card.appendChild(timeEl);
+      card.appendChild(labelEl);
+      card.appendChild(dateEl);
+      card.appendChild(offsetEl);
+
+      root.appendChild(card);
+
+      // Prepare formatter objects; creation is tried but failures are handled later
+      const tz = c.timezone;
+      let timeFmt = null;
+      let dateFmt = null;
+      try { timeFmt = getTimeFormatter(tz, cfg.hourFormat, cfg.showSeconds); } catch(e) { timeFmt = null; }
+      try { dateFmt = getDateFormatter(tz); } catch(e) { dateFmt = null; }
+
+      return { tz, timeEl, dateEl, offsetEl, labelEl, timeFmt, dateFmt };
+    });
+
+    // Store nodes for update loop
+    root._clockNodes = nodes;
+  }
+
+  let intervalId = null;
+  function scheduleUpdates(cfg) {
+    if (intervalId) clearInterval(intervalId);
+    // Initial update
+    updateTimes(cfg);
+    const ms = cfg.showSeconds ? 1000 : 60000;
+    intervalId = setInterval(() => updateTimes(cfg), ms);
+  }
+
+  // Single update loop for all clocks
+  function updateTimes(cfg) {
+    const root = document.getElementById('root');
+    const nodes = root._clockNodes || [];
+    const now = new Date();
+
+    nodes.forEach(n => {
+      const tz = n.tz;
+      if (!tz) {
+        n.timeEl.textContent = 'Invalid timezone';
+        n.dateEl.style.display = 'none';
+        n.offsetEl.style.display = 'none';
+        return;
+      }
+
+      // Time
+      try {
+        const fmt = n.timeFmt || getTimeFormatter(tz, cfg.hourFormat, cfg.showSeconds);
+        if (!fmt) throw new Error('timefmt');
+        n.timeEl.textContent = fmt.format(now);
+      } catch (e) {
+        n.timeEl.textContent = 'Invalid timezone';
+        n.dateEl.style.display = 'none';
+        n.offsetEl.style.display = 'none';
+        return;
+      }
+
+      // Date
+      if (cfg.showDate) {
+        try {
+          const df = n.dateFmt || getDateFormatter(tz);
+          if (!df) throw new Error('datefmt');
+          n.dateEl.textContent = df.format(now);
+          n.dateEl.style.display = '';
+        } catch (e) {
+          n.dateEl.style.display = 'none';
+        }
+      } else {
+        n.dateEl.style.display = 'none';
+      }
+
+      // UTC offset
+      if (cfg.showTimezone) {
+        const off = getUTCOffsetString(tz, now);
+        if (off) {
+          n.offsetEl.textContent = off;
+          n.offsetEl.style.display = '';
+        } else {
+          n.offsetEl.style.display = 'none';
+        }
+      } else {
+        n.offsetEl.style.display = 'none';
+      }
+    });
+  }
+
+  // Init
+  const cfg = getConfigFromUrl();
+  applyThemeAndLayout(cfg);
+  render(cfg);
+  scheduleUpdates(cfg);
+
+})();
+</script>
+
+<!--
+Example URLs:
+
+1) Default (no params)
+   widgets/clock-renderer.html
+
+2) Config example (2 cities, minimal theme, 24-hour, seconds off, showTimezone on)
+   widgets/clock-renderer.html?config=%7B%22theme%22%3A%22minimal%22%2C%22hourFormat%22%3A24%2C%22showSeconds%22%3Afalse%2C%22showDate%22%3Atrue%2C%22showTimezone%22%3Atrue%2C%22layout%22%3A%22wrap%22%2C%22cities%22%3A%5B%7B%22label%22%3A%22NYC%22%2C%22timezone%22%3A%22America%2FNew_York%22%7D%2C%7B%22label%22%3A%22London%22%2C%22timezone%22%3A%22Europe%2FLondon%22%7D%5D%7D
+
+3) Old param example
+   widgets/clock-renderer.html?theme=dark&format=24&seconds=true
+-->
+
+</body>
+</html>
