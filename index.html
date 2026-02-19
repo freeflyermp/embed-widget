@@ -19,11 +19,6 @@ body {
   color: #111;
 }
 
-h1 {
-  font-size: 20px;
-  margin-bottom: 16px;
-}
-
 textarea {
   width: 100%;
   min-height: 220px;
@@ -58,9 +53,7 @@ button.secondary {
   color: #111;
 }
 
-.section {
-  margin-top: 28px;
-}
+.section { margin-top: 28px; }
 
 .preview {
   margin-top: 16px;
@@ -78,74 +71,90 @@ button.secondary {
 </head>
 <body>
 
+<div id="app"></div>
+
 <script>
-(function () {
+(function() {
 
   const params = new URLSearchParams(window.location.search);
   const renderContent = params.get("render");
+  const app = document.getElementById("app");
 
+  // ========================
+  // RENDER MODE
+  // ========================
   if (renderContent) {
+
+    document.body.style.margin = "0";
+
     const decoded = decodeURIComponent(renderContent);
 
-    document.open();
-    document.write(`
-      <!doctype html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-      </head>
-      <body style="margin:0">
-        ${decoded}
-      </body>
-      </html>
-    `);
-    document.close();
+    // Insert raw HTML
+    app.innerHTML = decoded;
 
-    return; // Clean exit, no UI load
+    // Re-execute script tags safely
+    const scripts = app.querySelectorAll("script");
+    scripts.forEach(oldScript => {
+      const newScript = document.createElement("script");
+
+      if (oldScript.src) {
+        newScript.src = oldScript.src;
+        newScript.async = oldScript.async;
+      } else {
+        newScript.textContent = oldScript.textContent;
+      }
+
+      oldScript.replaceWith(newScript);
+    });
+
+    return;
   }
 
+  // ========================
+  // GENERATOR MODE
+  // ========================
+
+  app.innerHTML = `
+    <h1>HTML → Notion Embed Generator</h1>
+
+    <div class="section">
+      <textarea id="htmlInput" placeholder="Paste your HTML here"></textarea>
+      <button id="generateBtn">Generate Embed Link</button>
+    </div>
+
+    <div class="section">
+      <input id="output" readonly placeholder="Embed URL will appear here">
+      <button class="secondary" id="copyBtn">Copy</button>
+      <div class="hint">Paste this URL into Notion → /embed</div>
+    </div>
+
+    <div class="section">
+      <div class="preview" id="preview"></div>
+    </div>
+  `;
+
+  const htmlInput = document.getElementById("htmlInput");
+  const output = document.getElementById("output");
+  const preview = document.getElementById("preview");
+
+  document.getElementById("generateBtn").addEventListener("click", () => {
+    const html = htmlInput.value.trim();
+    if (!html) return;
+
+    const encoded = encodeURIComponent(html);
+    const base = window.location.origin + window.location.pathname;
+    const finalURL = `${base}?render=${encoded}`;
+
+    output.value = finalURL;
+    preview.innerHTML = html;
+  });
+
+  document.getElementById("copyBtn").addEventListener("click", async () => {
+    if (!output.value) return;
+    await navigator.clipboard.writeText(output.value);
+  });
+
 })();
-</script>
-
-<h1>HTML → Notion Embed Generator</h1>
-
-<div class="section">
-  <textarea id="htmlInput" placeholder="Paste your HTML here"></textarea>
-  <button id="generateBtn">Generate Embed Link</button>
-</div>
-
-<div class="section">
-  <input id="output" readonly placeholder="Embed URL will appear here">
-  <button class="secondary" id="copyBtn">Copy</button>
-  <div class="hint">Paste this URL into Notion → /embed</div>
-</div>
-
-<div class="section">
-  <div class="preview" id="preview"></div>
-</div>
-
-<script>
-const htmlInput = document.getElementById("htmlInput");
-const output = document.getElementById("output");
-const preview = document.getElementById("preview");
-
-document.getElementById("generateBtn").addEventListener("click", () => {
-  const html = htmlInput.value.trim();
-  if (!html) return;
-
-  const encoded = encodeURIComponent(html);
-  const base = window.location.origin + window.location.pathname;
-  const finalURL = `${base}?render=${encoded}`;
-
-  output.value = finalURL;
-  preview.innerHTML = html;
-});
-
-document.getElementById("copyBtn").addEventListener("click", async () => {
-  if (!output.value) return;
-  await navigator.clipboard.writeText(output.value);
-});
 </script>
 
 </body>
