@@ -89,10 +89,35 @@ button.secondary {
 
     const decoded = decodeURIComponent(renderContent);
 
-    // Insert raw HTML
-    app.innerHTML = decoded;
+    // Parse the incoming HTML and sanitize any generator UI that may have
+    // been pasted into the input. This prevents the generator controls from
+    // being injected into the rendered embed under any circumstance.
+    const parser = new DOMParser();
+    const parsed = parser.parseFromString(decoded, "text/html");
 
-    // Re-execute script tags safely
+    // Known generator element IDs/selectors that must never be included
+    // inside the rendered embed. Remove them if present in the parsed doc.
+    const blacklist = [
+      '#htmlInput',
+      '#generateBtn',
+      '#output',
+      '#copyBtn',
+      '#preview',
+      'h1'
+    ];
+
+    blacklist.forEach(sel => {
+      parsed.querySelectorAll(sel).forEach(el => el.remove());
+    });
+
+    // Also remove any `id="app"` instances coming from the payload to
+    // avoid nesting or duplicating the host app UI.
+    parsed.querySelectorAll('#app').forEach(el => el.remove());
+
+    // Insert sanitized body content
+    app.innerHTML = parsed.body.innerHTML;
+
+    // Re-execute script tags from the payload safely
     const scripts = app.querySelectorAll("script");
     scripts.forEach(oldScript => {
       const newScript = document.createElement("script");
